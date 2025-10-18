@@ -1,22 +1,77 @@
-import { X } from "lucide-react";
-import { useState } from "react";
+import { X, User } from "lucide-react";
+import { useState, useEffect } from "react";
 import { RichTextEditor } from "./RichTextEditor";
+import { ImageUpload } from "./ImageUpload";
+import { supabase } from "../lib/supabase";
+
+interface UserProfile {
+  id: string;
+  email: string;
+  full_name: string | null;
+}
 
 interface CreateTaskModalProps {
   onClose: () => void;
-  onCreate: (title: string, description: string) => void;
+  onCreate: (
+    title: string,
+    description: string,
+    images: string[],
+    assignedTo?: string
+  ) => void;
 }
 
 export function CreateTaskModal({ onClose, onCreate }: CreateTaskModalProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [images, setImages] = useState<string[]>([]);
+  const [assignedTo, setAssignedTo] = useState<string>("");
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const loadUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("user_profiles")
+        .select("id, email, full_name")
+        .order("full_name", { ascending: true });
+
+      if (error) throw error;
+      setUsers(data || []);
+    } catch (error) {
+      console.error("Error loading users:", error);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (title.trim()) {
-      onCreate(title, description);
+      onCreate(title, description, images, assignedTo || undefined);
       onClose();
     }
+  };
+
+  const handleUploadImage = async (file: File): Promise<string> => {
+    // Aquí implementaremos la subida a Supabase Storage
+    // Por ahora retornamos una URL temporal
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setImages((prev) => [...prev, result]);
+        resolve(result);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleRemoveImage = (imageUrl: string) => {
+    setImages((prev) => prev.filter((img) => img !== imageUrl));
   };
 
   return (
@@ -63,6 +118,48 @@ export function CreateTaskModal({ onClose, onCreate }: CreateTaskModalProps) {
               onChange={setDescription}
               placeholder="Descripción de la tarea..."
               height={300}
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="assignedTo"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              Asignar a (opcional)
+            </label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <select
+                id="assignedTo"
+                value={assignedTo}
+                onChange={(e) => setAssignedTo(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={loadingUsers}
+              >
+                <option value="">Sin asignar</option>
+                {users.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.full_name || user.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {loadingUsers && (
+              <p className="text-xs text-gray-500 mt-1">Cargando usuarios...</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Imágenes (opcional)
+            </label>
+            <ImageUpload
+              onUpload={handleUploadImage}
+              onRemove={handleRemoveImage}
+              existingImages={images}
+              maxSizeMB={2}
+              maxImages={5}
             />
           </div>
 

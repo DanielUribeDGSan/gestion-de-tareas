@@ -1,10 +1,17 @@
-import { X } from "lucide-react";
+import { X, User } from "lucide-react";
 import { useState, useEffect } from "react";
 import { RichTextEditor } from "./RichTextEditor";
 import { Task } from "../lib/supabase";
+import { supabase } from "../lib/supabase";
+
+interface UserProfile {
+  id: string;
+  email: string;
+  full_name: string | null;
+}
 
 interface EditTaskModalProps {
-  task: Task;
+  task: Task & {};
   onClose: () => void;
   onUpdate: (title: string, description: string) => void;
 }

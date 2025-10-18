@@ -2,7 +2,7 @@ import { MessageCircle, Paperclip, Calendar, Trash2 } from "lucide-react";
 import { Task } from "../lib/supabase";
 
 interface TaskCardProps {
-  task: Task;
+  task: Task & {};
   commentCount: number;
   attachmentCount: number;
   onDragStart: (task: Task) => void;

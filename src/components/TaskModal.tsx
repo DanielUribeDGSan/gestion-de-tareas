@@ -10,6 +10,7 @@ import {
 import { Task, Comment, Attachment } from "../lib/supabase";
 import { useState } from "react";
 import { RichTextEditor } from "./RichTextEditor";
+import { ImageModal } from "./ImageModal";
 
 interface TaskModalProps {
   task: Task;
@@ -36,6 +37,8 @@ export function TaskModal({
 }: TaskModalProps) {
   const [commentText, setCommentText] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   const handleAddComment = () => {
     if (commentText.trim()) {
@@ -52,6 +55,14 @@ export function TaskModal({
       setUploading(false);
     }
   };
+
+  const handleImageClick = (index: number) => {
+    setSelectedImageIndex(index);
+    setShowImageModal(true);
+  };
+
+  const imageUrls = attachments.map((att) => att.file_path);
+  const imageNames = attachments.map((att) => att.file_name);
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -107,7 +118,7 @@ export function TaskModal({
               </label>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              {attachments.map((attachment) => (
+              {attachments.map((attachment, index) => (
                 <div
                   key={attachment.id}
                   className="relative group bg-gray-50 rounded-xl overflow-hidden border border-gray-200"
@@ -115,7 +126,9 @@ export function TaskModal({
                   <img
                     src={attachment.file_path}
                     alt={attachment.file_name}
-                    className="w-full h-40 object-cover"
+                    className="w-full h-40 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={() => handleImageClick(index)}
+                    title="Haz clic para ver en tamaño completo"
                   />
                   <button
                     onClick={() =>
@@ -184,6 +197,15 @@ export function TaskModal({
           </div>
         </div>
       </div>
+
+      {/* Modal de imágenes */}
+      <ImageModal
+        isOpen={showImageModal}
+        onClose={() => setShowImageModal(false)}
+        images={imageUrls}
+        initialIndex={selectedImageIndex}
+        imageNames={imageNames}
+      />
     </div>
   );
 }

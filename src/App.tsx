@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "./contexts/AuthContext";
 import {
   supabase,
@@ -19,6 +19,7 @@ import { TaskModal } from "./components/TaskModal";
 import { DeleteProjectModal } from "./components/DeleteProjectModal";
 import { DeleteCommentModal } from "./components/DeleteCommentModal";
 import { DeleteTaskModal } from "./components/DeleteTaskModal";
+import { MyTasksModal } from "./components/MyTasksModal";
 import { useDragAndDrop } from "./hooks/useDragAndDrop";
 
 function App() {
@@ -51,13 +52,13 @@ function App() {
   const [commentToDelete, setCommentToDelete] = useState<Comment | null>(null);
   const [showDeleteTask, setShowDeleteTask] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
+  const [showMyTasks, setShowMyTasks] = useState(false);
 
   // Estados de carga
-  const [loading, setLoading] = useState(true);
+  // const [loading, setLoading] = useState(true);
 
   // Hook para drag and drop
   const {
-    draggedTask,
     draggedOverColumn,
     handleDragStart,
     handleDragOver,
@@ -66,34 +67,75 @@ function App() {
     handleDragEnd,
   } = useDragAndDrop();
 
-  // Efectos
-  useEffect(() => {
-    if (user) {
-      loadProjects();
-    }
-  }, [user]);
+  // Estado para evitar verificaciones repetidas
+  const [storageChecked, setStorageChecked] = useState(false);
 
-  useEffect(() => {
-    if (selectedProject) {
-      loadProjectData(selectedProject.id);
-    } else {
-      setColumns([]);
-      setTasks([]);
-      setTaskCounts({});
+  // Función para verificar configuración de Storage (solo una vez)
+  const checkStorageConfiguration = useCallback(async () => {
+    if (storageChecked) return;
+
+    try {
+      console.log("🔍 Verificando configuración de Storage...");
+      console.log("👤 Usuario autenticado:", user?.id);
+
+      // Listar buckets disponibles
+      const { data: buckets, error: bucketsError } =
+        await supabase.storage.listBuckets();
+
+      if (bucketsError) {
+        console.warn("⚠️ Error al listar buckets:", bucketsError.message);
+        setStorageChecked(true);
+        return;
+      }
+
+      console.log("📦 Buckets disponibles:", buckets);
+
+      // Verificar si existe el bucket task-attachments
+      const taskAttachmentsBucket = buckets?.find(
+        (bucket) => bucket.name === "task-attachments"
+      );
+
+      if (!taskAttachmentsBucket) {
+        console.warn("⚠️ El bucket 'task-attachments' no existe");
+        console.log(
+          "📋 Buckets disponibles:",
+          buckets?.map((b) => b.name)
+        );
+        setStorageChecked(true);
+        return;
+      }
+
+      console.log(
+        "✅ Bucket 'task-attachments' encontrado:",
+        taskAttachmentsBucket
+      );
+      setStorageChecked(true);
+    } catch (error) {
+      console.error("💥 Error verificando configuración:", error);
+      setStorageChecked(true);
     }
-  }, [selectedProject]);
+  }, [user?.id, storageChecked]);
 
   // Funciones de carga
-  const loadProjects = async () => {
+  const loadProjects = useCallback(async () => {
+    if (!user?.id) return;
+
     try {
-      setLoading(true);
+      console.log(
+        "📂 Cargando todos los proyectos disponibles para usuario:",
+        user.id
+      );
       const { data, error } = await supabase
         .from("projects")
         .select("*")
-        .eq("user_id", user?.id)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("❌ Error al cargar proyectos:", error);
+        throw error;
+      }
+
+      console.log("✅ Proyectos cargados:", data?.length || 0);
       setProjects(data || []);
 
       // Seleccionar el primer proyecto si existe
@@ -102,12 +144,10 @@ function App() {
       }
     } catch (error) {
       console.error("Error loading projects:", error);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [user?.id, selectedProject]);
 
-  const loadProjectData = async (projectId: string) => {
+  const loadProjectData = useCallback(async (projectId: string) => {
     try {
       // Cargar columnas
       const { data: columnsData, error: columnsError } = await supabase
@@ -134,7 +174,25 @@ function App() {
     } catch (error) {
       console.error("Error loading project data:", error);
     }
-  };
+  }, []);
+
+  // Efectos
+  useEffect(() => {
+    if (user && !storageChecked) {
+      loadProjects();
+      checkStorageConfiguration();
+    }
+  }, [user, loadProjects, checkStorageConfiguration, storageChecked]);
+
+  useEffect(() => {
+    if (selectedProject) {
+      loadProjectData(selectedProject.id);
+    } else {
+      setColumns([]);
+      setTasks([]);
+      setTaskCounts({});
+    }
+  }, [selectedProject, loadProjectData]);
 
   const loadTaskCounts = async (tasksList: Task[]) => {
     try {
@@ -393,7 +451,8 @@ function App() {
   const handleCreateTask = async (
     columnId: string,
     title: string,
-    description: string
+    description: string,
+    images: string[] = []
   ) => {
     if (!selectedProject) return;
 
@@ -418,13 +477,63 @@ function App() {
 
       if (error) throw error;
 
+      // Subir imágenes si las hay
+      if (images && images.length > 0) {
+        for (const imageDataUrl of images) {
+          try {
+            // Convertir Data URL a Blob
+            const response = await fetch(imageDataUrl);
+            const blob = await response.blob();
+
+            // Crear un archivo temporal
+            const fileExt = blob.type.split("/")[1] || "png";
+            const fileName = `task-image-${Math.random()}.${fileExt}`;
+            const filePath = `attachments/${fileName}`;
+
+            // Subir archivo a Supabase Storage
+            const { error: uploadError } = await supabase.storage
+              .from("task-attachments")
+              .upload(filePath, blob);
+
+            if (uploadError) {
+              console.error("Error al subir imagen:", uploadError);
+              continue; // Continuar con la siguiente imagen
+            }
+
+            // Obtener URL pública
+            const {
+              data: { publicUrl },
+            } = supabase.storage
+              .from("task-attachments")
+              .getPublicUrl(filePath);
+
+            // Guardar en base de datos
+            await supabase.from("attachments").insert([
+              {
+                task_id: data.id,
+                file_name: fileName,
+                file_path: publicUrl,
+                file_type: blob.type,
+                file_size: blob.size,
+                user_id: user?.id,
+              },
+            ]);
+
+            console.log("Imagen subida exitosamente:", fileName);
+          } catch (imageError) {
+            console.error("Error al procesar imagen:", imageError);
+            // Continuar con la siguiente imagen
+          }
+        }
+      }
+
       // Actualizar estado local
       setTasks((prev) => [...prev, data]);
 
       // Actualizar conteos
       setTaskCounts((prev) => ({
         ...prev,
-        [data.id]: { comments: 0, attachments: 0 },
+        [data.id]: { comments: 0, attachments: images?.length || 0 },
       }));
 
       return data;
@@ -455,7 +564,11 @@ function App() {
       setTasks((prev) =>
         prev.map((task) =>
           task.id === taskId
-            ? { ...task, title, description: description || null }
+            ? {
+                ...task,
+                title,
+                description: description || null,
+              }
             : task
         )
       );
@@ -463,7 +576,13 @@ function App() {
       // Si la tarea está seleccionada, actualizar también
       if (selectedTask?.id === taskId) {
         setSelectedTask((prev) =>
-          prev ? { ...prev, title, description: description || null } : null
+          prev
+            ? {
+                ...prev,
+                title,
+                description: description || null,
+              }
+            : null
         );
       }
     } catch (error) {
@@ -500,6 +619,8 @@ function App() {
 
   const loadTaskDetails = async (taskId: string) => {
     try {
+      console.log("Cargando detalles de la tarea:", taskId);
+
       // Cargar comentarios
       const { data: comments, error: commentsError } = await supabase
         .from("comments")
@@ -509,6 +630,7 @@ function App() {
 
       if (commentsError) throw commentsError;
       setTaskComments(comments || []);
+      console.log("Comentarios cargados:", comments?.length || 0);
 
       // Cargar archivos adjuntos
       const { data: attachments, error: attachmentsError } = await supabase
@@ -517,7 +639,24 @@ function App() {
         .eq("task_id", taskId)
         .order("created_at", { ascending: true });
 
-      if (attachmentsError) throw attachmentsError;
+      if (attachmentsError) {
+        console.error("Error al cargar attachments:", attachmentsError);
+        throw attachmentsError;
+      }
+
+      console.log("Attachments cargados:", attachments?.length || 0);
+      if (attachments && attachments.length > 0) {
+        console.log("Detalles de attachments:", attachments);
+        attachments.forEach((att, index) => {
+          console.log(`Attachment ${index + 1}:`, {
+            id: att.id,
+            file_name: att.file_name,
+            file_path: att.file_path,
+            file_type: att.file_type,
+          });
+        });
+      }
+
       setTaskAttachments(attachments || []);
     } catch (error) {
       console.error("Error loading task details:", error);
@@ -591,21 +730,37 @@ function App() {
     if (!selectedTask) return;
 
     try {
+      console.log(
+        "Iniciando subida de archivo:",
+        file.name,
+        "Tamaño:",
+        file.size
+      );
+
       // Subir archivo a Supabase Storage
       const fileExt = file.name.split(".").pop();
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `attachments/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
+      console.log("Subiendo archivo a:", filePath);
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from("task-attachments")
         .upload(filePath, file);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error("Error al subir archivo:", uploadError);
+        throw uploadError;
+      }
+
+      console.log("Archivo subido exitosamente:", uploadData);
 
       // Obtener URL pública
       const {
         data: { publicUrl },
       } = supabase.storage.from("task-attachments").getPublicUrl(filePath);
+
+      console.log("URL pública generada:", publicUrl);
 
       // Guardar en base de datos
       const { data, error } = await supabase
@@ -623,7 +778,12 @@ function App() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error al guardar en base de datos:", error);
+        throw error;
+      }
+
+      console.log("Archivo guardado en base de datos:", data);
 
       // Actualizar archivos adjuntos
       setTaskAttachments((prev) => [...prev, data]);
@@ -636,8 +796,13 @@ function App() {
           attachments: (prev[selectedTask.id]?.attachments || 0) + 1,
         },
       }));
+
+      console.log("Archivo adjunto agregado exitosamente");
     } catch (error) {
       console.error("Error uploading attachment:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      alert(`Error al subir la imagen: ${errorMessage}`);
     }
   };
 
@@ -699,11 +864,23 @@ function App() {
     setShowCreateTask(true);
   };
 
-  const handleCreateTaskSubmit = async (title: string, description: string) => {
+  const handleCreateTaskSubmit = async (
+    title: string,
+    description: string,
+    images: string[] = []
+  ) => {
     if (selectedColumnForTask) {
-      await handleCreateTask(selectedColumnForTask, title, description);
+      await handleCreateTask(selectedColumnForTask, title, description, images);
       setShowCreateTask(false);
       setSelectedColumnForTask(null);
+    }
+  };
+
+  const handleMyTaskClick = async (taskId: string) => {
+    // Buscar la tarea en el estado actual
+    const task = tasks.find((t) => t.id === taskId);
+    if (task) {
+      await handleTaskClick(task);
     }
   };
 
@@ -732,6 +909,7 @@ function App() {
         onCreateProject={() => setShowCreateProject(true)}
         onDeleteProject={handleOpenDeleteProject}
         onSignOut={signOut}
+        onShowMyTasks={() => setShowMyTasks(true)}
         userEmail={user.email || ""}
       />
 
@@ -849,6 +1027,13 @@ function App() {
         isOpen={showDeleteTask}
         onClose={handleCloseDeleteTask}
         onConfirm={handleConfirmDeleteTask}
+      />
+
+      <MyTasksModal
+        isOpen={showMyTasks}
+        onClose={() => setShowMyTasks(false)}
+        userId={user?.id || ""}
+        onTaskClick={handleMyTaskClick}
       />
     </div>
   );
