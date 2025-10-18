@@ -1,7 +1,7 @@
-import { Plus, MoreVertical, Trash2 } from 'lucide-react';
-import { Column, Task } from '../lib/supabase';
-import { TaskCard } from './TaskCard';
-import { useState } from 'react';
+import { Plus, MoreVertical, Trash2 } from "lucide-react";
+import { Column, Task } from "../lib/supabase";
+import { TaskCard } from "./TaskCard";
+import { useState } from "react";
 
 interface BoardProps {
   columns: Column[];
@@ -11,6 +11,7 @@ interface BoardProps {
   onDeleteColumn: (columnId: string) => void;
   onCreateTask: (columnId: string) => void;
   onTaskClick: (task: Task) => void;
+  onDeleteTask: (task: Task) => void;
   onDragStart: (task: Task) => void;
   onDragEnd: () => void;
   onDragOver: (e: React.DragEvent, columnId: string) => void;
@@ -27,6 +28,7 @@ export function Board({
   onDeleteColumn,
   onCreateTask,
   onTaskClick,
+  onDeleteTask,
   onDragStart,
   onDragEnd,
   onDragOver,
@@ -50,10 +52,7 @@ export function Board({
           const isDraggedOver = draggedOverColumn === column.id;
 
           return (
-            <div
-              key={column.id}
-              className="flex-shrink-0 w-80"
-            >
+            <div key={column.id} className="flex-shrink-0 w-80">
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 h-full flex flex-col">
                 <div className="p-4 border-b border-gray-200">
                   <div className="flex items-center justify-between mb-1">
@@ -62,14 +61,20 @@ export function Board({
                         className="w-3 h-3 rounded-full"
                         style={{ backgroundColor: column.color }}
                       />
-                      <h2 className="font-semibold text-gray-800">{column.name}</h2>
+                      <h2 className="font-semibold text-gray-800">
+                        {column.name}
+                      </h2>
                       <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full">
                         {columnTasks.length}
                       </span>
                     </div>
                     <div className="relative">
                       <button
-                        onClick={() => setColumnMenuOpen(columnMenuOpen === column.id ? null : column.id)}
+                        onClick={() =>
+                          setColumnMenuOpen(
+                            columnMenuOpen === column.id ? null : column.id
+                          )
+                        }
                         className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
                       >
                         <MoreVertical className="w-4 h-4" />
@@ -97,7 +102,7 @@ export function Board({
                   onDragLeave={onDragLeave}
                   onDrop={() => onDrop(column.id)}
                   className={`flex-1 p-4 space-y-3 overflow-y-auto transition-colors ${
-                    isDraggedOver ? 'bg-blue-50' : ''
+                    isDraggedOver ? "bg-blue-50" : ""
                   }`}
                 >
                   {columnTasks.map((task) => (
@@ -109,6 +114,7 @@ export function Board({
                       onDragStart={onDragStart}
                       onDragEnd={onDragEnd}
                       onClick={() => onTaskClick(task)}
+                      onDelete={onDeleteTask}
                     />
                   ))}
                 </div>

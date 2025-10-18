@@ -14,7 +14,11 @@ import { Board } from "./components/Board";
 import { CreateProjectModal } from "./components/CreateProjectModal";
 import { CreateColumnModal } from "./components/CreateColumnModal";
 import { CreateTaskModal } from "./components/CreateTaskModal";
+import { EditTaskModal } from "./components/EditTaskModal";
 import { TaskModal } from "./components/TaskModal";
+import { DeleteProjectModal } from "./components/DeleteProjectModal";
+import { DeleteCommentModal } from "./components/DeleteCommentModal";
+import { DeleteTaskModal } from "./components/DeleteTaskModal";
 import { useDragAndDrop } from "./hooks/useDragAndDrop";
 
 function App() {
@@ -39,6 +43,14 @@ function App() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [taskComments, setTaskComments] = useState<Comment[]>([]);
   const [taskAttachments, setTaskAttachments] = useState<Attachment[]>([]);
+  const [showDeleteProject, setShowDeleteProject] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [showEditTask, setShowEditTask] = useState(false);
+  const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
+  const [showDeleteComment, setShowDeleteComment] = useState(false);
+  const [commentToDelete, setCommentToDelete] = useState<Comment | null>(null);
+  const [showDeleteTask, setShowDeleteTask] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
 
   // Estados de carga
   const [loading, setLoading] = useState(true);
@@ -182,6 +194,138 @@ function App() {
     }
   };
 
+  const handleDeleteProject = async (projectId: string) => {
+    try {
+      // Eliminar proyecto (las columnas y tareas se eliminan automáticamente por CASCADE)
+      const { error } = await supabase
+        .from("projects")
+        .delete()
+        .eq("id", projectId);
+
+      if (error) throw error;
+
+      // Actualizar estado local
+      setProjects((prev) => prev.filter((project) => project.id !== projectId));
+
+      // Si el proyecto eliminado era el seleccionado, seleccionar otro o limpiar
+      if (selectedProject?.id === projectId) {
+        const remainingProjects = projects.filter(
+          (project) => project.id !== projectId
+        );
+        setSelectedProject(
+          remainingProjects.length > 0 ? remainingProjects[0] : null
+        );
+        setColumns([]);
+        setTasks([]);
+        setTaskCounts({});
+      }
+    } catch (error) {
+      console.error("Error deleting project:", error);
+      throw error;
+    }
+  };
+
+  const handleOpenDeleteProject = (project: Project) => {
+    setProjectToDelete(project);
+    setShowDeleteProject(true);
+  };
+
+  const handleConfirmDeleteProject = async () => {
+    if (projectToDelete) {
+      await handleDeleteProject(projectToDelete.id);
+      setShowDeleteProject(false);
+      setProjectToDelete(null);
+    }
+  };
+
+  const handleCloseDeleteProject = () => {
+    setShowDeleteProject(false);
+    setProjectToDelete(null);
+  };
+
+  const handleOpenEditTask = (task: Task) => {
+    setTaskToEdit(task);
+    setShowEditTask(true);
+  };
+
+  const handleUpdateTaskSubmit = async (title: string, description: string) => {
+    if (taskToEdit) {
+      await handleUpdateTask(taskToEdit.id, title, description);
+      setShowEditTask(false);
+      setTaskToEdit(null);
+    }
+  };
+
+  const handleCloseEditTask = () => {
+    setShowEditTask(false);
+    setTaskToEdit(null);
+  };
+
+  const handleOpenDeleteComment = (comment: Comment) => {
+    setCommentToDelete(comment);
+    setShowDeleteComment(true);
+  };
+
+  const handleConfirmDeleteComment = async () => {
+    if (commentToDelete) {
+      await handleDeleteComment(commentToDelete.id);
+      setShowDeleteComment(false);
+      setCommentToDelete(null);
+    }
+  };
+
+  const handleCloseDeleteComment = () => {
+    setShowDeleteComment(false);
+    setCommentToDelete(null);
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      // Eliminar tarea (los comentarios y archivos se eliminan automáticamente por CASCADE)
+      const { error } = await supabase.from("tasks").delete().eq("id", taskId);
+
+      if (error) throw error;
+
+      // Actualizar estado local
+      setTasks((prev) => prev.filter((task) => task.id !== taskId));
+
+      // Si la tarea eliminada era la seleccionada, cerrar el modal
+      if (selectedTask?.id === taskId) {
+        setSelectedTask(null);
+        setTaskComments([]);
+        setTaskAttachments([]);
+      }
+
+      // Actualizar conteos
+      setTaskCounts((prev) => {
+        const newCounts = { ...prev };
+        delete newCounts[taskId];
+        return newCounts;
+      });
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      throw error;
+    }
+  };
+
+  const handleOpenDeleteTask = (task: Task) => {
+    setTaskToDelete(task);
+    setShowDeleteTask(true);
+  };
+
+  const handleConfirmDeleteTask = async () => {
+    if (taskToDelete) {
+      await handleDeleteTask(taskToDelete.id);
+      setShowDeleteTask(false);
+      setTaskToDelete(null);
+    }
+  };
+
+  const handleCloseDeleteTask = () => {
+    setShowDeleteTask(false);
+    setTaskToDelete(null);
+  };
+
   // Funciones CRUD para Columnas
   const handleCreateColumn = async (name: string, color: string) => {
     if (!selectedProject) return;
@@ -286,6 +430,44 @@ function App() {
       return data;
     } catch (error) {
       console.error("Error creating task:", error);
+      throw error;
+    }
+  };
+
+  const handleUpdateTask = async (
+    taskId: string,
+    title: string,
+    description: string
+  ) => {
+    try {
+      const { error } = await supabase
+        .from("tasks")
+        .update({
+          title,
+          description: description || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", taskId);
+
+      if (error) throw error;
+
+      // Actualizar estado local
+      setTasks((prev) =>
+        prev.map((task) =>
+          task.id === taskId
+            ? { ...task, title, description: description || null }
+            : task
+        )
+      );
+
+      // Si la tarea está seleccionada, actualizar también
+      if (selectedTask?.id === taskId) {
+        setSelectedTask((prev) =>
+          prev ? { ...prev, title, description: description || null } : null
+        );
+      }
+    } catch (error) {
+      console.error("Error updating task:", error);
       throw error;
     }
   };
@@ -548,6 +730,7 @@ function App() {
         selectedProject={selectedProject}
         onSelectProject={setSelectedProject}
         onCreateProject={() => setShowCreateProject(true)}
+        onDeleteProject={handleOpenDeleteProject}
         onSignOut={signOut}
         userEmail={user.email || ""}
       />
@@ -562,6 +745,7 @@ function App() {
             onDeleteColumn={handleDeleteColumn}
             onCreateTask={handleOpenCreateTask}
             onTaskClick={handleTaskClick}
+            onDeleteTask={handleOpenDeleteTask}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
             onDragOver={handleDragOver}
@@ -631,11 +815,41 @@ function App() {
             setTaskAttachments([]);
           }}
           onAddComment={handleAddComment}
-          onDeleteComment={handleDeleteComment}
+          onDeleteComment={handleOpenDeleteComment}
           onUploadAttachment={handleUploadAttachment}
           onDeleteAttachment={handleDeleteAttachment}
+          onEditTask={handleOpenEditTask}
         />
       )}
+
+      <DeleteProjectModal
+        project={projectToDelete}
+        isOpen={showDeleteProject}
+        onClose={handleCloseDeleteProject}
+        onConfirm={handleConfirmDeleteProject}
+      />
+
+      {showEditTask && taskToEdit && (
+        <EditTaskModal
+          task={taskToEdit}
+          onClose={handleCloseEditTask}
+          onUpdate={handleUpdateTaskSubmit}
+        />
+      )}
+
+      <DeleteCommentModal
+        comment={commentToDelete}
+        isOpen={showDeleteComment}
+        onClose={handleCloseDeleteComment}
+        onConfirm={handleConfirmDeleteComment}
+      />
+
+      <DeleteTaskModal
+        task={taskToDelete}
+        isOpen={showDeleteTask}
+        onClose={handleCloseDeleteTask}
+        onConfirm={handleConfirmDeleteTask}
+      />
     </div>
   );
 }

@@ -1,20 +1,27 @@
 import { X } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { RichTextEditor } from "./RichTextEditor";
+import { Task } from "../lib/supabase";
 
-interface CreateTaskModalProps {
+interface EditTaskModalProps {
+  task: Task;
   onClose: () => void;
-  onCreate: (title: string, description: string) => void;
+  onUpdate: (title: string, description: string) => void;
 }
 
-export function CreateTaskModal({ onClose, onCreate }: CreateTaskModalProps) {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+export function EditTaskModal({ task, onClose, onUpdate }: EditTaskModalProps) {
+  const [title, setTitle] = useState(task.title);
+  const [description, setDescription] = useState(task.description || "");
+
+  useEffect(() => {
+    setTitle(task.title);
+    setDescription(task.description || "");
+  }, [task]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (title.trim()) {
-      onCreate(title, description);
+      onUpdate(title, description);
       onClose();
     }
   };
@@ -23,7 +30,7 @@ export function CreateTaskModal({ onClose, onCreate }: CreateTaskModalProps) {
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl">
         <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-800">Crear Nueva Tarea</h2>
+          <h2 className="text-xl font-bold text-gray-800">Editar Tarea</h2>
           <button
             onClick={onClose}
             className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all"
@@ -78,7 +85,7 @@ export function CreateTaskModal({ onClose, onCreate }: CreateTaskModalProps) {
               type="submit"
               className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all font-medium"
             >
-              Crear
+              Actualizar
             </button>
           </div>
         </form>

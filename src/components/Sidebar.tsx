@@ -1,4 +1,10 @@
-import { LayoutDashboard, Plus, LogOut, FolderKanban } from "lucide-react";
+import {
+  LayoutDashboard,
+  Plus,
+  LogOut,
+  FolderKanban,
+  Trash2,
+} from "lucide-react";
 import { Project } from "../lib/supabase";
 
 interface SidebarProps {
@@ -6,6 +12,7 @@ interface SidebarProps {
   selectedProject: Project | null;
   onSelectProject: (project: Project) => void;
   onCreateProject: () => void;
+  onDeleteProject: (project: Project) => void;
   onSignOut: () => void;
   userEmail: string;
 }
@@ -15,6 +22,7 @@ export function Sidebar({
   selectedProject,
   onSelectProject,
   onCreateProject,
+  onDeleteProject,
   onSignOut,
   userEmail,
 }: SidebarProps) {
@@ -43,24 +51,38 @@ export function Sidebar({
         </h2>
         <div className="space-y-1">
           {projects.map((project) => (
-            <button
+            <div
               key={project.id}
-              onClick={() => onSelectProject(project)}
-              className={`w-full text-left px-3 py-2.5 rounded-xl transition-all flex items-center gap-3 group ${
+              className={`w-full px-3 py-2.5 rounded-xl transition-all flex items-center gap-3 group ${
                 selectedProject?.id === project.id
                   ? "bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 font-medium"
                   : "text-gray-700 hover:bg-gray-50"
               }`}
             >
-              <FolderKanban
-                className={`w-4 h-4 ${
-                  selectedProject?.id === project.id
-                    ? "text-blue-600"
-                    : "text-gray-400 group-hover:text-gray-600"
-                }`}
-              />
-              <span className="truncate">{project.name}</span>
-            </button>
+              <button
+                onClick={() => onSelectProject(project)}
+                className="flex items-center gap-3 flex-1 text-left"
+              >
+                <FolderKanban
+                  className={`w-4 h-4 ${
+                    selectedProject?.id === project.id
+                      ? "text-blue-600"
+                      : "text-gray-400 group-hover:text-gray-600"
+                  }`}
+                />
+                <span className="truncate">{project.name}</span>
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteProject(project);
+                }}
+                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                title="Eliminar proyecto"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
           ))}
         </div>
       </div>
