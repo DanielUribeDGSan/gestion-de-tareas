@@ -330,3 +330,12 @@ CREATE POLICY "Users can delete their own attachments"
   ON attachments FOR DELETE
   TO authenticated
   USING (auth.uid() = user_id);
+
+  -- Política para ver archivos
+CREATE POLICY "Users can view attachments" ON storage.objects FOR SELECT USING (bucket_id = 'task-attachments');
+
+-- Política para subir archivos
+CREATE POLICY "Users can upload attachments" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'task-attachments' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+-- Política para eliminar archivos
+CREATE POLICY "Users can delete own attachments" ON storage.objects FOR DELETE USING (bucket_id = 'task-attachments' AND auth.uid()::text = (storage.foldername(name))[1]);
