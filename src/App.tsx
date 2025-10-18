@@ -159,10 +159,15 @@ function App() {
       if (columnsError) throw columnsError;
       setColumns(columnsData || []);
 
-      // Cargar tareas
+      // Cargar tareas con información del usuario asignado
       const { data: tasksData, error: tasksError } = await supabase
         .from("tasks")
-        .select("*")
+        .select(
+          `
+          *,
+          assigned_user:user_profiles!assigned_to(id, email, full_name)
+        `
+        )
         .eq("project_id", projectId)
         .order("position", { ascending: true });
 
@@ -452,7 +457,8 @@ function App() {
     columnId: string,
     title: string,
     description: string,
-    images: string[] = []
+    images: string[] = [],
+    assignedTo?: string
   ) => {
     if (!selectedProject) return;
 
@@ -470,6 +476,7 @@ function App() {
             description: description || null,
             position,
             user_id: user?.id,
+            assigned_to: assignedTo || null,
           },
         ])
         .select()
@@ -867,10 +874,17 @@ function App() {
   const handleCreateTaskSubmit = async (
     title: string,
     description: string,
-    images: string[] = []
+    images: string[] = [],
+    assignedTo?: string
   ) => {
     if (selectedColumnForTask) {
-      await handleCreateTask(selectedColumnForTask, title, description, images);
+      await handleCreateTask(
+        selectedColumnForTask,
+        title,
+        description,
+        images,
+        assignedTo
+      );
       setShowCreateTask(false);
       setSelectedColumnForTask(null);
     }

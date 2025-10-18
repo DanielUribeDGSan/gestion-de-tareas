@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -31,8 +31,14 @@ export type Task = {
   description: string | null;
   position: number;
   user_id: string;
+  assigned_to: string | null;
   created_at: string;
   updated_at: string;
+  assigned_user?: {
+    id: string;
+    email: string;
+    full_name: string | null;
+  };
 };
 
 export type Comment = {

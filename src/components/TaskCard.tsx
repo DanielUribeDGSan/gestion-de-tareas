@@ -1,4 +1,4 @@
-import { MessageCircle, Paperclip, Calendar, Trash2 } from "lucide-react";
+import { MessageCircle, Paperclip, Calendar, Trash2, User } from "lucide-react";
 import { Task } from "../lib/supabase";
 
 interface TaskCardProps {
@@ -66,6 +66,14 @@ export function TaskCard({
             <div className="flex items-center gap-1 text-gray-500">
               <Paperclip className="w-4 h-4" />
               <span className="text-xs">{attachmentCount}</span>
+            </div>
+          )}
+          {task.assigned_user && (
+            <div className="flex items-center gap-1 text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+              <User className="w-3 h-3" />
+              <span className="text-xs font-medium">
+                {task.assigned_user.full_name || task.assigned_user.email}
+              </span>
             </div>
           )}
         </div>

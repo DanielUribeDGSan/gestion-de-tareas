@@ -1,28 +1,29 @@
-import { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { LogIn } from 'lucide-react';
+import { useState } from "react";
+import { useAuth } from "../contexts/AuthContext";
+import { LogIn } from "lucide-react";
 
 export function Auth() {
   const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { signIn, signUp } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     try {
       if (isSignUp) {
-        await signUp(email, password);
+        await signUp(email, password, fullName);
       } else {
         await signIn(email, password);
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred');
+      setError(err.message || "An error occurred");
     } finally {
       setLoading(false);
     }
@@ -38,15 +39,40 @@ export function Auth() {
         </div>
 
         <h1 className="text-3xl font-bold text-center mb-2 text-gray-800">
-          {isSignUp ? 'Crear Cuenta' : 'Bienvenido'}
+          {isSignUp ? "Crear Cuenta" : "Bienvenido"}
         </h1>
         <p className="text-center text-gray-500 mb-8">
-          {isSignUp ? 'Registra tu cuenta para empezar' : 'Inicia sesión para continuar'}
+          {isSignUp
+            ? "Registra tu cuenta para empezar"
+            : "Inicia sesión para continuar"}
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {isSignUp && (
+            <div>
+              <label
+                htmlFor="fullName"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
+                Nombre Completo
+              </label>
+              <input
+                id="fullName"
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                placeholder="Tu nombre completo"
+                required={isSignUp}
+              />
+            </div>
+          )}
+
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
               Correo Electrónico
             </label>
             <input
@@ -61,7 +87,10 @@ export function Auth() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
               Contraseña
             </label>
             <input
@@ -86,7 +115,11 @@ export function Auth() {
             disabled={loading}
             className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 px-4 rounded-xl font-medium hover:from-blue-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Cargando...' : isSignUp ? 'Registrarse' : 'Iniciar Sesión'}
+            {loading
+              ? "Cargando..."
+              : isSignUp
+              ? "Registrarse"
+              : "Iniciar Sesión"}
           </button>
         </form>
 
@@ -95,7 +128,9 @@ export function Auth() {
             onClick={() => setIsSignUp(!isSignUp)}
             className="text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors"
           >
-            {isSignUp ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate'}
+            {isSignUp
+              ? "¿Ya tienes cuenta? Inicia sesión"
+              : "¿No tienes cuenta? Regístrate"}
           </button>
         </div>
       </div>

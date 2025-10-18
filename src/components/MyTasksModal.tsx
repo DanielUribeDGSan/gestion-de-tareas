@@ -33,11 +33,6 @@ interface ColumnInfo {
   name: string;
 }
 
-interface UserProfileInfo {
-  email: string;
-  full_name: string;
-}
-
 interface MyTasksModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -77,11 +72,10 @@ export function MyTasksModal({
           created_at,
           updated_at,
           projects!inner(name),
-          columns!inner(name),
-          user_profiles_creator:user_id(email, full_name)
+          columns!inner(name)
         `
         )
-        .eq("user_id", userId)
+        .eq("assigned_to", userId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -107,18 +101,8 @@ export function MyTasksModal({
               (task.projects as unknown as ProjectInfo)?.name || "Sin proyecto",
             column_name:
               (task.columns as unknown as ColumnInfo)?.name || "Sin columna",
-            assigned_to_email:
-              (task.user_profiles_assigned as unknown as UserProfileInfo)
-                ?.email || null,
-            assigned_to_name:
-              (task.user_profiles_assigned as unknown as UserProfileInfo)
-                ?.full_name || null,
-            created_by_email:
-              (task.user_profiles_creator as unknown as UserProfileInfo)
-                ?.email || null,
-            created_by_name:
-              (task.user_profiles_creator as unknown as UserProfileInfo)
-                ?.full_name || null,
+            created_by_email: null,
+            created_by_name: null,
             comments_count: commentsCount || 0,
             attachments_count: attachmentsCount || 0,
           };
